@@ -1,0 +1,70 @@
+{
+  "source": "OpenStreetMap road data routed via public OSRM demo Table API",
+  "endpoint": "https://router.project-osrm.org/table/v1/driving/",
+  "request_utc": "2026-10-14T07:34:24.702548+00:00",
+  "routing_mode": "driving",
+  "metric": "distance in km along fastest OSRM driving routes",
+  "notes": "One-off snapshot. Map network may change. Free public demo: no service guarantees.",
+  "coordinates": [
+    {
+      "vertex": "V0",
+      "name": "Gaston Park / Divisoria",
+      "latitude": 8.4759103,
+      "longitude": 124.6421983
+    },
+    {
+      "vertex": "V1",
+      "name": "St. Augustine Metropolitan Cathedral",
+      "latitude": 8.47486,
+      "longitude": 124.64147
+    },
+    {
+      "vertex": "V2",
+      "name": "Museo de Oro (Xavier University)",
+      "latitude": 8.4758781,
+      "longitude": 124.6459584
+    },
+    {
+      "vertex": "V3",
+      "name": "Limketkai Center",
+      "latitude": 8.4816,
+      "longitude": 124.6539
+    },
+    {
+      "vertex": "V4",
+      "name": "Cogon Market",
+      "latitude": 8.47743,
+      "longitude": 124.65153
+    },
+    {
+      "vertex": "V5",
+      "name": "Centrio Mall",
+      "latitude": 8.485,
+      "longitude": 124.651
+    },
+    {
+      "vertex": "V6",
+      "name": "SM CDO Downtown Premier",
+      "latitude": 8.4843833,
+      "longitude": 124.6543222
+    },
+    {
+      "vertex": "V7",
+      "name": "Pelaez Sports Center",
+      "latitude": 8.4821048,
+      "longitude": 124.6460375
+    },
+    {
+      "vertex": "V8",
+      "name": "Cagayan de Oro City Hall",
+      "latitude": 8.47694,
+      "longitude": 124.64133
+    },
+    {
+      "vertex": "V9",
+      "name": "Capitol University",
+      "latitude": 8.48823,
+      "longitude": 124.65274
+    }
+  ]
+}

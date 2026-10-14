@@ -25,11 +25,12 @@ import time
 # =============================================================================
 # SECTION 1: DATASET  (this is the dataset used by the implementation)
 # =============================================================================
-# !!! Set to False ONLY after you replace the matrix below with your real
-# !!! Google Maps driving distances.
-USING_PLACEHOLDER_DATA = True
+# Distances are loaded from the real road-network snapshot produced by
+# fetch_osrm_matrix.py. Missing data is an error, not a placeholder fallback.
+from pathlib import Path
 
-# Vertex labels and the locations they represent (check each pin on Google Maps).
+USING_PLACEHOLDER_DATA = False
+
 VERTICES = [
     "V0 Gaston Park / Divisoria (start/end)",
     "V1 St. Augustine Metropolitan Cathedral",
@@ -43,24 +44,35 @@ VERTICES = [
     "V9 Capitol University",
 ]
 
-# DIST[i][j] = driving distance in km from vertex i to vertex j (DIRECTED).
-# Row = from, column = to. Diagonal = 0.
-# Data source (real data): Google Maps, driving mode, read in each direction.
-# Assumed data: no traffic effects, fixed route suggested by Google Maps,
-#               no time spent at each stop.
-# The values below are PLACEHOLDERS for testing only, NOT real measurements.
-DIST = [
-    [ 0.0,  1.8,  1.5,  2.4,  2.1,  1.3,  3.5,  1.1,  4.6,  1.8],
-    [ 1.8,  0.0,  1.7,  3.8,  3.8,  2.9,  4.0,  2.8,  4.7,  1.7],
-    [ 1.6,  1.7,  0.0,  2.6,  2.6,  2.9,  2.5,  2.2,  3.1,  0.3],
-    [ 2.4,  3.9,  2.6,  0.0,  0.4,  2.1,  2.5,  1.6,  3.7,  2.8],
-    [ 2.0,  3.8,  2.7,  0.4,  0.0,  1.9,  2.9,  1.2,  4.1,  2.9],
-    [ 1.4,  3.1,  2.9,  2.2,  1.8,  0.0,  4.1,  0.8,  5.4,  3.2],
-    [ 3.7,  4.1,  2.5,  2.6,  2.8,  4.3,  0.0,  3.4,  1.2,  2.3],
-    [ 1.1,  2.8,  2.2,  1.5,  1.2,  0.7,  3.5,  0.0,  4.7,  2.6],
-    [ 4.6,  4.7,  3.0,  3.8,  4.1,  5.5,  1.3,  4.5,  0.0,  2.8],
-    [ 1.8,  1.7,  0.3,  2.8,  2.8,  3.0,  2.4,  2.5,  2.9,  0.0],
-]
+def load_distance_matrix(path):
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"{path} not found. Fill landmark_coordinates.csv and run "
+            "python fetch_osrm_matrix.py first."
+        )
+    with path.open(newline="", encoding="utf-8-sig") as fh:
+        rows = list(csv.reader(fh))
+    expected = [f"V{i}" for i in range(10)]
+    if len(rows) != 11 or rows[0][1:] != expected:
+        raise ValueError("Expected a header V0 through V9 and exactly 10 data rows.")
+    if [r[0] for r in rows[1:]] != expected:
+        raise ValueError("Distance matrix rows must be V0 through V9 in order.")
+    dist = [[float(value) for value in r[1:]] for r in rows[1:]]
+    if any(len(r) != 10 for r in dist):
+        raise ValueError("Distance matrix must have 10 numeric columns.")
+    if any(not math.isfinite(v) or v < 0 for r in dist for v in r):
+        raise ValueError("Distance matrix must have finite nonnegative values.")
+    if any(abs(dist[i][i]) > 1e-9 for i in range(10)):
+        raise ValueError("Diagonal distances must be zero.")
+    return dist
+
+DIST = load_distance_matrix(Path(__file__).resolve().parent / "distance_matrix.csv")
+
+# Optional geographic vertex placement; schematic circle when None.
+COORDS = None
+SHOW_PLOTS = True
+SAVE_PLOTS = True
 
 START = 0  # index of the starting (and ending) vertex
 
