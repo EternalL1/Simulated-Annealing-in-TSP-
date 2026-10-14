@@ -1,4 +1,4 @@
-﻿# Simulated-Annealing-in-TSP-
+﻿# Simulated-Annealing-in-TSP
 Simulated Annealing (SA) is a probabilistic meta-heuristic inspired by annealing in metallurgy, where a material is heated and cooled slowly so it settles into a low-energy state.
 
 For TSP, the "energy" is the total tour distance and the "temperature" T controls how willing the search is to accept worse tours.
