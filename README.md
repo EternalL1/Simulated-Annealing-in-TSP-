@@ -3,7 +3,8 @@ Simulated Annealing (SA) is a probabilistic meta-heuristic inspired by annealing
 
 For TSP, the "energy" is the total tour distance and the "temperature" T controls how willing the search is to accept worse tours.
 
-Procedure (Algorithm 2.5 in the assigned paper)
+Procedure (Algorithm 2.5 in the assigned paper, Luna-Garcia, R., Candano, T. M. C., & Caga-anan, R. L. (2024). Performance analysis of classical algorithms for the traveling salesman problem. The Mindanawan Journal of Mathematics, 6(2), 79–111. doi:10.62071/tmjm.v6i2.716 (Sec. 2.5, Algorithm 2.5, Theorem 2.5).
+)
 1. Input the cities and the pairwise distance matrix.
 2. Start with a random tour and compute its total distance.
 3. Set a high initial temperature T.
