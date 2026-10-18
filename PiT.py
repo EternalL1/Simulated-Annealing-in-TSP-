@@ -9,7 +9,7 @@ Algorithm   : Simulated Annealing, following Algorithm 2.5 of the assigned paper
               stop when T is low / no improvement / max iterations ->
               output the shortest tour found).
 
-Run         : python tsp_simulated_annealing.py
+Run         : python PiT_10seed.py
 Output      : console report + distance_matrix.csv (the dataset used)
               + two figures (graph model with best route, SA convergence)
               saved as tsp_route_graph.png and tsp_convergence.png
@@ -25,7 +25,7 @@ import time
 # =============================================================================
 # SECTION 1: DATASET  (this is the dataset used by the implementation)
 # =============================================================================
-# Distances are loaded from the real road-network snapshot produced by
+# Distances are loaded from the OSRM road-network snapshot produced by
 # fetch_osrm_matrix.py. Missing data is an error, not a placeholder fallback.
 from pathlib import Path
 
@@ -70,10 +70,6 @@ def load_distance_matrix(path):
 DIST = load_distance_matrix(Path(__file__).resolve().parent / "distance_matrix.csv")
 
 # Optional geographic vertex placement; schematic circle when None.
-COORDS = None
-SHOW_PLOTS = True
-SAVE_PLOTS = True
-
 START = 0  # index of the starting (and ending) vertex
 
 # OPTIONAL map coordinates (latitude, longitude) of each vertex, in the same
@@ -88,7 +84,8 @@ SAVE_PLOTS = True   # also save the figures as PNG files
 # =============================================================================
 # SECTION 2: SIMULATED ANNEALING PARAMETERS
 # =============================================================================
-SEED = 42              # fixed seed so the demo run is repeatable
+SEED = 42              # main demonstration seed (independent of batch runs)
+BATCH_SEEDS = [42, 10, 20, 30, 40, 50, 60, 70, 80, 90]
 T_INITIAL = 10.0       # step 3: initial high temperature (on the scale of tour distance in km)
 ALPHA = 0.95           # step 11: cooling schedule T = alpha * T, 0 < alpha < 1
 T_MIN = 1e-3           # step 12: stop when temperature is sufficiently low
@@ -132,7 +129,7 @@ def swap_neighbor(tour):
 # =============================================================================
 # SECTION 4: SIMULATED ANNEALING (Algorithm 2.5)
 # =============================================================================
-def simulated_annealing(dist, start):
+def simulated_annealing(dist, start, log_example=False):
     n = len(dist)
     current = random_tour(n, start)                 # step 2
     current_cost = tour_distance(current, dist)
@@ -141,6 +138,7 @@ def simulated_annealing(dist, start):
 
     iterations = 0
     accepted_worse = 0
+    first_accepted_worse = None  # capture a real decision, without drawing extra random values
     stale_levels = 0
     history = []  # (temperature, best cost so far) for optional inspection
     trace_current, trace_best = [], []  # per-iteration costs for the figure
@@ -158,9 +156,28 @@ def simulated_annealing(dist, start):
             if delta < 0:                                   # steps 6-7
                 accept = True
             else:                                           # steps 8-9
-                accept = random.random() < math.exp(-delta / T)
+                probability = math.exp(-delta / T)
+                draw = random.random()  # SAME one RNG draw as original code
+                accept = draw < probability
                 if accept and delta > 0:
                     accepted_worse += 1
+                    # Capture only the FIRST genuinely accepted worse move in
+                    # the main demonstration. No additional random calls.
+                    if log_example and first_accepted_worse is None:
+                        changed = [i for i in range(n) if current[i] != candidate[i]]
+                        first_accepted_worse = {
+                            "iteration": iterations,
+                            "temperature": T,
+                            "current_route": current[:],
+                            "candidate_route": candidate[:],
+                            "swapped_positions": changed,
+                            "current_cost": current_cost,
+                            "candidate_cost": cand_cost,
+                            "delta": delta,
+                            "probability": probability,
+                            "random_draw": draw,
+                            "accepted": accept,
+                        }
 
             if accept:
                 current, current_cost = candidate, cand_cost
@@ -184,6 +201,7 @@ def simulated_annealing(dist, start):
         "iterations": iterations,
         "final_temperature": T,
         "worse_moves_accepted": accepted_worse,
+        "example_accepted_worse": first_accepted_worse,
         "temperature_levels": len(history),
         "trace_current": trace_current,
         "trace_best": trace_best,
@@ -354,6 +372,69 @@ def make_figures(best, best_cost, stats, optimum):
         plt.show()
 
 
+
+# =============================================================================
+# SECTION 6B: REPEATABILITY EXPERIMENT -- SAME MATRIX AND PARAMETERS
+# =============================================================================
+def evaluate_seeds(seeds, optimum, path="sa_10_seed_results.csv"):
+    import statistics
+
+    results = []
+    for run_number, seed in enumerate(seeds, start=1):
+        random.seed(seed)  # only variable changed across experiments
+        start_time = time.perf_counter()
+        best_tour, best_cost, stats = simulated_annealing(DIST, START)
+        seconds = time.perf_counter() - start_time
+        if not validate_tour(best_tour, len(DIST), START):
+            raise RuntimeError(f"Invalid TSP tour with seed {seed}")
+        if abs(tour_distance(best_tour, DIST) - best_cost) > 1e-9:
+            raise RuntimeError(f"Inconsistent route length for seed {seed}")
+        # Float tolerance, not one-decimal rounding, determines exact agreement.
+        found_optimum = abs(best_cost - optimum) <= 1e-8
+        gap = 100 * (best_cost - optimum) / optimum
+        results.append({
+            "run": run_number,
+            "seed": seed,
+            "distance_km": f"{best_cost:.6f}",
+            "optimum_km": f"{optimum:.6f}",
+            "gap_percent": f"{gap:.6f}",
+            "found_optimum": found_optimum,
+            "iterations": stats["iterations"],
+            "accepted_worse_moves": stats["worse_moves_accepted"],
+            "elapsed_seconds": f"{seconds:.4f}",
+            "route": " -> ".join(f"V{x}" for x in best_tour + [START]),
+        })
+
+    destination = Path(__file__).resolve().parent / path
+    with destination.open("w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=list(results[0]))
+        writer.writeheader()
+        writer.writerows(results)
+
+    distances = [float(x["distance_km"]) for x in results]
+    gaps = [float(x["gap_percent"]) for x in results]
+    success_count = sum(x["found_optimum"] for x in results)
+    print("\n" + "=" * 80)
+    print("10-SEED REPEATABILITY EXPERIMENT (fixed matrix, fixed SA parameters)")
+    print("=" * 80)
+    print(f"{'Seed':>6} {'Best km':>12} {'Gap %':>12} {'Optimal?':>11} {'Iterations':>12}")
+    for x in results:
+        print(f"{x['seed']:>6} {float(x['distance_km']):>12.4f} "
+              f"{float(x['gap_percent']):>12.4f} "
+              f"{('YES' if x['found_optimum'] else 'NO'):>11} "
+              f"{x['iterations']:>12}")
+    print(f"\nExact optimum:         {optimum:.6f} km")
+    print(f"Mean SA distance:      {statistics.mean(distances):.6f} km")
+    print(f"Std dev (sample):      {statistics.stdev(distances):.6f} km")
+    print(f"Best SA distance:      {min(distances):.6f} km")
+    print(f"Worst SA distance:     {max(distances):.6f} km")
+    print(f"Mean optimality gap:   {statistics.mean(gaps):.4f}%")
+    print(f"Optimum found:         {success_count}/{len(results)} "
+          f"({success_count / len(results) * 100:.1f}%)")
+    print(f"Saved results to:      {destination}")
+    print("NOTE: Runtime values vary by machine. The fixed-seed distances are reproducible.")
+    return results
+
 # =============================================================================
 # SECTION 6: MAIN
 # =============================================================================
@@ -384,17 +465,41 @@ def main():
           f"no-improve limit={NO_IMPROVE_LIMIT}")
 
     t0 = time.time()
-    best, best_cost, stats = simulated_annealing(DIST, START)
+    best, best_cost, stats = simulated_annealing(DIST, START, log_example=True)
     sa_time = time.time() - t0
 
     print("\n" + "-" * 70)
     print("SIMULATED ANNEALING RESULT")
     print("-" * 70)
     print("Route :", " -> ".join(f"V{v}" for v in best + [best[0]]))
-    print(f"Total distance (SA reported): {best_cost:.1f} km")
+    print(f"Total distance (SA reported): {best_cost:.4f} km")
     print(f"Iterations: {stats['iterations']} | temperature levels: "
           f"{stats['temperature_levels']} | worse moves accepted: "
           f"{stats['worse_moves_accepted']} | time: {sa_time:.3f} s\n")
+
+    # Show a REAL decision from seed 42. Its values are from the actual
+    # program execution, not an illustrative/hypothetical calculation.
+    example = stats["example_accepted_worse"]
+    if example is not None:
+        v = lambda route: " -> ".join(f"V{i}" for i in route + [START])
+        indices = example["swapped_positions"]
+        swapped = f"V{example['current_route'][indices[0]]} and V{example['current_route'][indices[1]]}" if len(indices) == 2 else "two non-starting cities"
+        print("\n" + "-" * 70)
+        print("ACTUAL ACCEPTED WORSE MOVE — SEED 42 (FOR PRESENTATION)")
+        print("-" * 70)
+        print(f"Iteration:             {example['iteration']}")
+        print(f"Swap:                  {swapped}")
+        print(f"Current route:         {v(example['current_route'])}")
+        print(f"Candidate route:       {v(example['candidate_route'])}")
+        print(f"Current distance:      {example['current_cost']:.6f} km")
+        print(f"Candidate distance:    {example['candidate_cost']:.6f} km")
+        print(f"Delta (new - old):     +{example['delta']:.6f} km")
+        print(f"Temperature (T):       {example['temperature']:.6f}")
+        print(f"P = exp(-Delta/T):     {example['probability']:.6f} ({100*example['probability']:.2f}%)")
+        print(f"Actual random draw:    {example['random_draw']:.6f}")
+        print(f"Decision:              ACCEPT because {example['random_draw']:.6f} < {example['probability']:.6f}")
+        print("NOTE: Only the current tour changes here; the best-so-far tour")
+        print("      is updated only if the accepted tour is a new best.")
 
     recalculated = print_route(best, DIST, VERTICES)
 
@@ -411,18 +516,25 @@ def main():
         opt_tour, opt_cost = brute_force(DIST, START)
         print("  Optimal route :",
               " -> ".join(f"V{v}" for v in opt_tour + [opt_tour[0]]))
-        print(f"  Optimal total : {opt_cost:.1f} km "
+        print(f"  Optimal total : {opt_cost:.4f} km "
               f"(computed in {time.time() - t0:.1f} s)")
         gap = (best_cost - opt_cost) / opt_cost * 100
-        print(f"  SA total      : {best_cost:.1f} km | gap to optimum: "
+        print(f"  SA total      : {best_cost:.4f} km | gap to optimum: "
               f"{gap:.2f}%")
         print("  SA found the optimum on this run." if gap < 1e-9
               else "  SA is approximate: it did not reach the optimum.")
     print("\nNote: SA is probabilistic and gives an approximate solution;")
     print("optimality is only claimed where the brute-force check confirms it.")
 
+    if opt_cost is not None:
+        evaluate_seeds(BATCH_SEEDS, opt_cost)
+
     make_figures(best, best_cost, stats, opt_cost)
 
 
 if __name__ == "__main__":
+    import sys
+    if "--no-plots" in sys.argv:
+        SHOW_PLOTS = False
+        SAVE_PLOTS = False
     main()

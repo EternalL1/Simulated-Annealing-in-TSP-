@@ -1,7 +1,7 @@
 {
   "source": "OpenStreetMap road data routed via public OSRM demo Table API",
   "endpoint": "https://router.project-osrm.org/table/v1/driving/",
-  "request_utc": "2026-10-14T07:34:24.702548+00:00",
+  "request_utc": "2026-10-14T18:36:54.761495+00:00",
   "routing_mode": "driving",
   "metric": "distance in km along fastest OSRM driving routes",
   "notes": "One-off snapshot. Map network may change. Free public demo: no service guarantees.",
